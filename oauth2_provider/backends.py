@@ -1,7 +1,9 @@
 from .compat import get_user_model
 from .oauth2_backends import get_oauthlib_core
+from .models import get_organization_model
 
 UserModel = get_user_model()
+OrganizationModel = get_organization_model()
 OAuthLibCore = get_oauthlib_core()
 
 
@@ -23,4 +25,10 @@ class OAuth2Backend(object):
         try:
             return UserModel.objects.get(pk=user_id)
         except UserModel.DoesNotExist:
+            return None
+
+    def get_organization(self, organization_id):
+        try:
+            return OrganizationModel.objects.get(pk=organization_id)
+        except OrganizationModel.DoesNotExist:
             return None

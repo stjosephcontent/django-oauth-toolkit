@@ -12,7 +12,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from oauthlib.oauth2 import RequestValidator
 
 from .compat import unquote_plus
-from .models import Grant, AccessToken, RefreshToken, get_application_model, AbstractApplication
+from .models import (Grant, AccessToken, RefreshToken, get_application_model, AbstractApplication,
+                     get_organization_model)
 from .settings import oauth2_settings
 
 log = logging.getLogger('oauth2_provider')
@@ -132,6 +133,19 @@ class OAuth2Validator(RequestValidator):
             log.debug("Failed body authentication: Application %s does not exist" % client_id)
             return None
 
+    def _load_organization(self, organization_id, request):
+        assert hasattr(request, "organization"), "'request' instance has no 'organization' attribute"
+
+        Organization = get_organization_model()
+        try:
+            request.organization = request.organization or Organization.objects.get(
+                pk=organization_id
+            )
+            return request.organization
+        except Organization.DoesNotExist:
+            log.debug("Failed body authentication: Organization %s does not exists" % organization_id)
+            return None
+
     def client_authentication_required(self, request, *args, **kwargs):
         """
         Determine if the client has to be authenticated
@@ -215,6 +229,9 @@ class OAuth2Validator(RequestValidator):
         """
         return self._load_application(client_id, request) is not None
 
+    def validate_organization_id(self, organization_id, request, *args, **kwargs):
+        return self._load_organization(organization_id, request) is not None
+
     def get_default_redirect_uri(self, client_id, request, *args, **kwargs):
         return request.client.default_redirect_uri
 
@@ -235,6 +252,9 @@ class OAuth2Validator(RequestValidator):
 
                 # this is needed by django rest framework
                 request.access_token = access_token
+
+                # support for organization
+                request.organization = access_token.organization
                 return True
             return False
         except AccessToken.DoesNotExist:
@@ -246,6 +266,9 @@ class OAuth2Validator(RequestValidator):
             if not grant.is_expired():
                 request.scopes = grant.scope.split(' ')
                 request.user = grant.user
+
+                # support for organization
+                request.organization = grant.organization
                 return True
             return False
 
@@ -288,7 +311,7 @@ class OAuth2Validator(RequestValidator):
             seconds=oauth2_settings.AUTHORIZATION_CODE_EXPIRE_SECONDS)
         g = Grant(application=request.client, user=request.user, code=code['code'],
                   expires=expires, redirect_uri=request.redirect_uri,
-                  scope=' '.join(request.scopes))
+                  scope=' '.join(request.scopes), organization=request.organization)
         g.save()
 
     def save_bearer_token(self, token, request, *args, **kwargs):
@@ -312,7 +335,8 @@ class OAuth2Validator(RequestValidator):
             scope=token['scope'],
             expires=expires,
             token=token['access_token'],
-            application=request.client)
+            application=request.client,
+            organization=request.organization)
         access_token.save()
 
         if 'refresh_token' in token:
@@ -320,6 +344,7 @@ class OAuth2Validator(RequestValidator):
                 user=request.user,
                 token=token['refresh_token'],
                 application=request.client,
+                organization=request.organization,
                 access_token=access_token
             )
             refresh_token.save()
@@ -361,6 +386,15 @@ class OAuth2Validator(RequestValidator):
             return True
         return False
 
+    def validate_organization(self, organization_id, user, client, request, *args, **kwargs):
+        """
+        Check if organization exists
+        """
+        if self._load_organization(organization_id, request) is None:
+            return False
+
+        return True
+
     def get_original_scopes(self, refresh_token, request, *args, **kwargs):
         # Avoid second query for RefreshToken since this method is invoked *after*
         # validate_refresh_token.
@@ -378,6 +412,8 @@ class OAuth2Validator(RequestValidator):
             request.refresh_token = rt.token
             # Temporary store RefreshToken instance to be reused by get_original_scopes.
             request.refresh_token_instance = rt
+            # In case we need to validate organization again
+            request.organization = rt.organization
             return rt.application == client
 
         except RefreshToken.DoesNotExist:

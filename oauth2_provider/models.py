@@ -58,6 +58,7 @@ class AbstractApplication(models.Model):
     client_id = models.CharField(max_length=100, unique=True,
                                  default=generate_client_id, db_index=True)
     user = models.ForeignKey(AUTH_USER_MODEL, related_name="%(app_label)s_%(class)s")
+    organization = models.ForeignKey(oauth2_settings.ORGANIZATION_MODEL, blank=True, null=True)
     help_text = _("Allowed URIs list, space separated")
     redirect_uris = models.TextField(help_text=help_text,
                                      validators=[validate_uris], blank=True)
@@ -129,6 +130,27 @@ class Application(AbstractApplication):
 # Add swappable like this to not break django 1.4 compatibility
 Application._meta.swappable = 'OAUTH2_PROVIDER_APPLICATION_MODEL'
 
+@python_2_unicode_compatible
+class AbstractOrganization(models.Model):
+    """
+    An Organization is another entity in addition to User that must be
+    specified along authorization. Exact usage of Organization varies on
+    the implementation.
+    """
+    name = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        abstract = True
+
+
+class Organization(AbstractOrganization):
+    pass
+
+Organization._meta.swappable = 'OAUTH2_PROVIDER_ORGANIZATION_MODEL'
+
 
 @python_2_unicode_compatible
 class Grant(models.Model):
@@ -149,6 +171,7 @@ class Grant(models.Model):
     user = models.ForeignKey(AUTH_USER_MODEL)
     code = models.CharField(max_length=255, db_index=True)  # code comes from oauthlib
     application = models.ForeignKey(oauth2_settings.APPLICATION_MODEL)
+    organization = models.ForeignKey(oauth2_settings.ORGANIZATION_MODEL, blank=True, null=True)
     expires = models.DateTimeField()
     redirect_uri = models.CharField(max_length=255)
     scope = models.TextField(blank=True)
@@ -186,6 +209,7 @@ class AccessToken(models.Model):
     user = models.ForeignKey(AUTH_USER_MODEL, blank=True, null=True)
     token = models.CharField(max_length=255, db_index=True)
     application = models.ForeignKey(oauth2_settings.APPLICATION_MODEL)
+    organization = models.ForeignKey(oauth2_settings.ORGANIZATION_MODEL, blank=True, null=True)
     expires = models.DateTimeField()
     scope = models.TextField(blank=True)
 
@@ -255,6 +279,7 @@ class RefreshToken(models.Model):
     user = models.ForeignKey(AUTH_USER_MODEL)
     token = models.CharField(max_length=255, db_index=True)
     application = models.ForeignKey(oauth2_settings.APPLICATION_MODEL)
+    organization = models.ForeignKey(oauth2_settings.ORGANIZATION_MODEL, blank=True, null=True)
     access_token = models.OneToOneField(AccessToken,
                                         related_name='refresh_token')
 
@@ -281,6 +306,20 @@ def get_application_model():
         e = "APPLICATION_MODEL refers to model {0} that has not been installed"
         raise ImproperlyConfigured(e.format(oauth2_settings.APPLICATION_MODEL))
     return app_model
+
+
+def get_organization_model():
+    """ Return the Organization model that is active in this project. """
+    try:
+        app_label, model_name = oauth2_settings.ORGANIZATION_MODEL.split('.')
+    except ValueError:
+        e = "ORGANIZATION_MODEL must be of the form 'app_label.model_name'"
+        raise ImproperlyConfigured(e)
+    org_model = get_model(app_label, model_name)
+    if org_model is None:
+        e = "ORGANIZATION_MODEL refers to model {0} that has not been installed"
+        raise ImproperlyConfigured(e.format(oauth2_settings.ORGANIZATION_MODEL))
+    return org_model
 
 
 def clear_expired():

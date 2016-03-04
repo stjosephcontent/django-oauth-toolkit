@@ -134,16 +134,29 @@ class OAuth2Validator(RequestValidator):
             return None
 
     def _load_organization(self, organization_id, request):
-        assert hasattr(request, "organization"), "'request' instance has no 'organization' attribute"
+        """
+        Load organization instance and store it in request.organization.
+        """
 
         Organization = get_organization_model()
+        pk_type = Organization._meta.pk.get_internal_type()
+        if pk_type in ('AutoField', 'IntegerField', 'BigIntegerField'):
+            # organization_id is passed as unicode string, convert to appropriate type if possible
+            try:
+                organization_id = int(organization_id)
+            except ValueError:
+                pass
         try:
-            request.organization = request.organization or Organization.objects.get(
+            request.organization = getattr(request, 'organization', None) or Organization.objects.get(
                 pk=organization_id
+
             )
             return request.organization
         except Organization.DoesNotExist:
             log.debug("Failed body authentication: Organization %s does not exists" % organization_id)
+            return None
+        except ValueError:
+            log.debug("Failed body authentication: %s is not a invalid Organization ID." % organization_id)
             return None
 
     def client_authentication_required(self, request, *args, **kwargs):
@@ -329,6 +342,7 @@ class OAuth2Validator(RequestValidator):
         expires = timezone.now() + timedelta(seconds=oauth2_settings.ACCESS_TOKEN_EXPIRE_SECONDS)
         if request.grant_type == 'client_credentials':
             request.user = None
+            request.organization = None
 
         access_token = AccessToken(
             user=request.user,

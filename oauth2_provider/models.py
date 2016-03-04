@@ -130,6 +130,7 @@ class Application(AbstractApplication):
 # Add swappable like this to not break django 1.4 compatibility
 Application._meta.swappable = 'OAUTH2_PROVIDER_APPLICATION_MODEL'
 
+
 @python_2_unicode_compatible
 class AbstractOrganization(models.Model):
     """

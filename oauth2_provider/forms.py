@@ -1,5 +1,4 @@
 from django import forms
-from .models import get_organization_model
 
 
 class AllowForm(forms.Form):
@@ -32,14 +31,14 @@ class AllowFormOrg(AllowForm):
                 raise ValueError("Invalid choices format provided.")
         except TypeError:
             raise ValueError('Invalid choices provided.')
-        if hasattr(organization_choices, '__iter__'): # must be iterable
+        if hasattr(organization_choices, '__iter__'):  # must be iterable
             self.fields['organization_id'].choices = organization_choices
         initial_organization = kwargs.get('initial', {}).get('organization_id', None)
         if initial_organization is not None:
             self.fields['organization_id'].widget.attrs['disabled'] = True
 
     @classmethod
-    def get_extra_form_kwargs(cls, kwargs, view):
+    def get_extra_form_kwargs(cls, kwargs, view, organization_model):
         """
         This class method is a hookup for the view to be able to swap forms without swapping
         Views. This is convenient when user wants to customize the form and provide extra
@@ -52,7 +51,9 @@ class AllowFormOrg(AllowForm):
 
         :param kwargs: Default kwargs, provided for the Form
         :param view: The View that uses this form
+        :param organization_model: Organization model is passed as arg to avoid import in forms module and
+        avoid Organization model mix-up (since it can be swapped)
         :return: kwargs
         """
-        kwargs['organization_choices'] = get_organization_model().objects.values_list('pk', 'name')
+        kwargs['organization_choices'] = organization_model.objects.values_list('pk', 'name')
         return kwargs

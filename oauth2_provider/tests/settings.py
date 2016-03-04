@@ -1,4 +1,4 @@
-import os
+import django
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
@@ -120,8 +120,6 @@ LOGGING = {
 OAUTH2_PROVIDER = {
     '_SCOPES': ['example']
 }
-
-import django
 
 if django.VERSION[:2] < (1, 6):
     TEST_RUNNER = 'discover_runner.DiscoverRunner'

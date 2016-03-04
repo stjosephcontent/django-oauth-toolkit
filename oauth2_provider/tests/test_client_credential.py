@@ -13,7 +13,7 @@ from django.views.generic import View
 
 from oauthlib.oauth2 import BackendApplicationServer
 
-from ..models import get_application_model, AccessToken
+from ..models import get_application_model, AccessToken, get_organization_model
 from ..oauth2_backends import OAuthLibCore
 from ..oauth2_validators import OAuth2Validator
 from ..settings import oauth2_settings
@@ -24,6 +24,7 @@ from .test_utils import TestCaseUtils
 
 
 Application = get_application_model()
+Organization = get_organization_model()
 UserModel = get_user_model()
 
 
@@ -46,12 +47,15 @@ class BaseTest(TestCaseUtils, TestCase):
             authorization_grant_type=Application.GRANT_CLIENT_CREDENTIALS,
         )
         self.application.save()
+        self.org = Organization(name='Samovar')
+        self.org.save()
 
         oauth2_settings._SCOPES = ['read', 'write']
         oauth2_settings._DEFAULT_SCOPES = ['read', 'write']
 
     def tearDown(self):
         self.application.delete()
+        self.org.delete()
         self.test_user.delete()
         self.dev_user.delete()
 
@@ -168,7 +172,8 @@ class TestClientResourcePasswordBased(BaseTest):
         token_request_data = {
             'grant_type': 'password',
             'username': 'test_user',
-            'password': '123456'
+            'password': '123456',
+            'organization_id': self.org.id
         }
         auth_headers = self.get_basic_auth_header(
             urllib.quote_plus(self.application.client_id),

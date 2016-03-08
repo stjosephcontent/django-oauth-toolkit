@@ -21,6 +21,15 @@
                     {% endfor %}
                 </ul>
 
+                {% if form.organization_id.field.widget.attrs.disabled %}
+                    <p>{% trans "Application requires access to the following Organization:" %}</p>
+                    <!-- Need to add hidden field, since the original field is disabled -->
+                    <input type="hidden" name="organization_id" value="{{ form.initial.organization_id }}"/>
+                {% else %}
+                    <p>{% trans "Please select the Organization." %}</p>
+                {% endif %}
+                {{ form.organization_id }}
+
                 {{ form.errors }}
                 {{ form.non_field_errors }}
 

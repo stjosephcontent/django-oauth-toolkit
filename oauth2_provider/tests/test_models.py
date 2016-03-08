@@ -11,12 +11,13 @@ from django.test.utils import override_settings
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from ..models import get_application_model, Grant, AccessToken, RefreshToken
+from ..models import get_application_model, Grant, AccessToken, RefreshToken, get_organization_model
 from ..compat import get_user_model
 
 
 Application = get_application_model()
 UserModel = get_user_model()
+OrganizationModel = get_organization_model()
 
 
 class TestModels(TestCase):
@@ -129,9 +130,29 @@ class TestCustomApplicationModel(TestCase):
         if django.VERSION < (1, 8):
             del UserModel._meta._related_objects_cache
         related_object_names = [ro.name for ro in UserModel._meta.get_all_related_objects()]
+        # print(related_object_names)
         self.assertNotIn('oauth2_provider:application', related_object_names)
         self.assertIn('tests%stestapplication' % (':' if django.VERSION < (1, 8) else '_'),
                       related_object_names)
+
+
+@skipIf(django.VERSION < (1, 5), "Behavior is broken on 1.4 and there is no solution")
+@override_settings(OAUTH2_PROVIDER_ORGANIZATION_MODEL='tests.TestOrganization')
+class TestCustomOrganizationModel(TestCase):
+    DATA = {'name': 'Organization foo', 'description': 'Chakalakalaka'}
+
+    def setUp(self):
+        from oauth2_provider.settings import oauth2_settings
+        delattr(oauth2_settings, 'ORGANIZATION_MODEL')
+        setattr(oauth2_settings, 'ORGANIZATION_MODEL', 'tests.TestOrganization')
+
+    def tearDown(self):
+        from oauth2_provider.settings import oauth2_settings
+        setattr(oauth2_settings, 'ORGANIZATION_MODEL', 'oauth2_provider.Organization')
+
+    def test_get_model(self):
+        Org = get_organization_model()
+        self.assertEqual(Org._meta.app_label, 'tests')
 
 
 class TestGrantModel(TestCase):
@@ -149,6 +170,7 @@ class TestGrantModel(TestCase):
 class TestAccessTokenModel(TestCase):
     def setUp(self):
         self.user = UserModel.objects.create_user("test_user", "test@user.com", "123456")
+        self.org = OrganizationModel.objects.create(title="Organization")
 
     def test_str(self):
         access_token = AccessToken(token="test_token")
@@ -169,6 +191,14 @@ class TestAccessTokenModel(TestCase):
         access_token = AccessToken(token="test_token")
         self.assertIsNone(access_token.expires)
         self.assertTrue(access_token.is_expired())
+
+    def test_organization_can_be_none(self):
+        access_token = AccessToken(token="test_token")
+        self.assertIsNone(access_token.organization)
+
+    def test_organization_can_be_set(self):
+        access_token = AccessToken(token="test_token", organization=self.org)
+        self.assertIsNotNone(access_token.organization)
 
 
 class TestRefreshTokenModel(TestCase):

@@ -10,9 +10,8 @@ from braces.views import LoginRequiredMixin, CsrfExemptMixin
 
 from ..settings import oauth2_settings
 from ..exceptions import OAuthToolkitError
-from ..forms import AllowForm
 from ..http import HttpResponseUriRedirect
-from ..models import get_application_model
+from ..models import get_application_model, get_organization_model
 from .mixins import OAuthLibMixin
 
 log = logging.getLogger('oauth2_provider')
@@ -67,7 +66,7 @@ class AuthorizationView(BaseAuthorizationView, FormView):
     * Implicit grant
     """
     template_name = 'oauth2_provider/authorize.html'
-    form_class = AllowForm
+    form_class = oauth2_settings.OAUTH2_ALLOW_FORM
 
     server_class = oauth2_settings.OAUTH2_SERVER_CLASS
     validator_class = oauth2_settings.OAUTH2_VALIDATOR_CLASS
@@ -83,8 +82,11 @@ class AuthorizationView(BaseAuthorizationView, FormView):
             'scope': ' '.join(scopes),
             'client_id': self.oauth2_data.get('client_id', None),
             'state': self.oauth2_data.get('state', None),
-            'response_type': self.oauth2_data.get('response_type', None),
+            'response_type': self.oauth2_data.get('response_type', None)
         }
+        organization = self.oauth2_data.get('organization_id')
+        if organization is not None:
+            initial_data['organization_id'] = organization
         return initial_data
 
     def form_valid(self, form):
@@ -94,6 +96,7 @@ class AuthorizationView(BaseAuthorizationView, FormView):
                 'redirect_uri': form.cleaned_data.get('redirect_uri'),
                 'response_type': form.cleaned_data.get('response_type', None),
                 'state': form.cleaned_data.get('state', None),
+                'organization_id': form.cleaned_data.get('organization_id', None)
             }
 
             scopes = form.cleaned_data.get('scope')
@@ -106,6 +109,21 @@ class AuthorizationView(BaseAuthorizationView, FormView):
 
         except OAuthToolkitError as error:
             return self.error_response(error)
+
+    def get_form_kwargs(self):
+        kwargs = super(AuthorizationView, self).get_form_kwargs()
+        extra_hook = getattr(self.form_class, 'get_extra_form_kwargs', None)
+        if extra_hook is not None:
+            # TODO: maybe validate if the hook is used properly
+            extra_kwargs = extra_hook(kwargs, self, get_organization_model())
+            if isinstance(extra_kwargs, dict):
+                # Don't allow to delete the default kwargs, but allow to overwrite (for now)
+                kwargs.update(extra_kwargs)
+            else:
+                raise ValueError("\"get_extra_form_kwargs\" should return a dictionary, got {}"
+                                 "instead".format(type(extra_kwargs)))
+
+        return kwargs
 
     def get(self, request, *args, **kwargs):
         try:

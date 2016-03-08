@@ -6,13 +6,14 @@ from django.conf.global_settings import MIDDLEWARE_CLASSES
 from django.http import HttpResponse
 
 from ..compat import get_user_model
-from ..models import get_application_model
+from ..models import get_application_model, get_organization_model
 from ..models import AccessToken
 from ..backends import OAuth2Backend
 from ..middleware import OAuth2TokenMiddleware
 
 UserModel = get_user_model()
 ApplicationModel = get_application_model()
+OrganizationModel = get_organization_model()
 
 
 class BaseTest(TestCase):
@@ -27,15 +28,20 @@ class BaseTest(TestCase):
             authorization_grant_type=ApplicationModel.GRANT_CLIENT_CREDENTIALS,
             user=self.user
         )
+        self.org = OrganizationModel.objects.create(
+            title='org'
+        )
         self.token = AccessToken.objects.create(user=self.user,
                                                 token='tokstr',
                                                 application=self.app,
+                                                organization=self.org,
                                                 expires=now() + timedelta(days=365))
         self.factory = RequestFactory()
 
     def tearDown(self):
         self.user.delete()
         self.app.delete()
+        self.org.delete()
         self.token.delete()
 
 
@@ -69,6 +75,11 @@ class TestOAuth2Backend(BaseTest):
         backend = OAuth2Backend()
         self.assertEqual(self.user, backend.get_user(self.user.pk))
         self.assertIsNone(backend.get_user(123456))
+
+    def test_get_organization(self):
+        backend = OAuth2Backend()
+        self.assertEqual(self.org, backend.get_organization(self.org.pk))
+        self.assertIsNone(backend.get_organization(123456))
 
 
 @override_settings(

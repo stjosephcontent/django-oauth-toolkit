@@ -22,6 +22,10 @@ sys.path.insert(0, os.path.dirname(here))
 sys.path.insert(0, os.path.join(os.path.dirname(here), 'example'))
 
 os.environ['DJANGO_SETTINGS_MODULE'] = 'oauth2_provider.tests.settings'
+
+# Adding django.setup() statement, otherwise oauth2_provider.models fails to generate docs
+import django
+django.setup()
 import oauth2_provider
 
 # -- General configuration -----------------------------------------------------

@@ -8,11 +8,12 @@ from django.core.urlresolvers import reverse
 
 from .test_utils import TestCaseUtils
 from ..compat import urlparse, parse_qs, get_user_model, urlencode
-from ..models import get_application_model, Grant, AccessToken
+from ..models import get_application_model, Grant, AccessToken, get_organization_model
 from ..settings import oauth2_settings
 from ..views import ScopedProtectedResourceView, ReadWriteScopedResourceView
 
 Application = get_application_model()
+Organization = get_organization_model()
 UserModel = get_user_model()
 
 
@@ -53,6 +54,8 @@ class BaseTest(TestCaseUtils, TestCase):
             authorization_grant_type=Application.GRANT_AUTHORIZATION_CODE,
         )
         self.application.save()
+        self.org = Organization(title='Samovar')
+        self.org.save()
 
         oauth2_settings._SCOPES = ['read', 'write', 'scope1', 'scope2', 'scope3']
         oauth2_settings.READ_SCOPE = 'read'
@@ -60,6 +63,7 @@ class BaseTest(TestCaseUtils, TestCase):
 
     def tearDown(self):
         self.application.delete()
+        self.org.delete()
         self.test_user.delete()
         self.dev_user.delete()
 
@@ -85,6 +89,7 @@ class TestScopesQueryParameterBackwardsCompatibility(BaseTest):
             'redirect_uri': 'http://example.it',
             'response_type': 'code',
             'allow': True,
+            'organization_id': self.org.id,
         }
         response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
         query_dict = parse_qs(urlparse(response['Location']).query)
@@ -106,6 +111,7 @@ class TestScopesQueryParameterBackwardsCompatibility(BaseTest):
             'scopes': 'read write',  # using plural `scopes`
             'redirect_uri': 'http://example.it',
             'response_type': 'code',
+            'organization_id': self.org.id,
         })
         url = "{url}?{qs}".format(url=reverse('oauth2_provider:authorize'), qs=query_string)
 
@@ -134,6 +140,7 @@ class TestScopesSave(BaseTest):
             'redirect_uri': 'http://example.it',
             'response_type': 'code',
             'allow': True,
+            'organization_id': self.org.id,
         }
         response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
         query_dict = parse_qs(urlparse(response['Location']).query)
@@ -156,6 +163,7 @@ class TestScopesSave(BaseTest):
             'redirect_uri': 'http://example.it',
             'response_type': 'code',
             'allow': True,
+            'organization_id': self.org.id,
         }
         response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
         query_dict = parse_qs(urlparse(response['Location']).query)
@@ -192,6 +200,7 @@ class TestScopesProtection(BaseTest):
             'redirect_uri': 'http://example.it',
             'response_type': 'code',
             'allow': True,
+            'organization_id': self.org.id,
         }
         response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
         query_dict = parse_qs(urlparse(response['Location']).query)
@@ -234,6 +243,7 @@ class TestScopesProtection(BaseTest):
             'redirect_uri': 'http://example.it',
             'response_type': 'code',
             'allow': True,
+            'organization_id': self.org.id,
         }
         response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
         query_dict = parse_qs(urlparse(response['Location']).query)
@@ -276,6 +286,7 @@ class TestScopesProtection(BaseTest):
             'redirect_uri': 'http://example.it',
             'response_type': 'code',
             'allow': True,
+            'organization_id': self.org.id,
         }
         response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
         query_dict = parse_qs(urlparse(response['Location']).query)
@@ -318,6 +329,7 @@ class TestScopesProtection(BaseTest):
             'redirect_uri': 'http://example.it',
             'response_type': 'code',
             'allow': True,
+            'organization_id': self.org.id,
         }
         response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
         query_dict = parse_qs(urlparse(response['Location']).query)
@@ -359,6 +371,7 @@ class TestReadWriteScope(BaseTest):
             'redirect_uri': 'http://example.it',
             'response_type': 'code',
             'allow': True,
+            'organization_id': self.org.id,
         }
         response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
         query_dict = parse_qs(urlparse(response['Location']).query)

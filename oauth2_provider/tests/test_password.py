@@ -5,7 +5,7 @@ import json
 from django.test import TestCase, RequestFactory
 from django.core.urlresolvers import reverse
 
-from ..models import get_application_model
+from ..models import get_application_model, get_organization_model
 from ..settings import oauth2_settings
 from ..views import ProtectedResourceView
 from ..compat import get_user_model
@@ -14,6 +14,7 @@ from .test_utils import TestCaseUtils
 
 Application = get_application_model()
 UserModel = get_user_model()
+OrganizationModel = get_organization_model()
 
 
 # mocking a protected resource view
@@ -35,12 +36,15 @@ class BaseTest(TestCaseUtils, TestCase):
             authorization_grant_type=Application.GRANT_PASSWORD,
         )
         self.application.save()
+        self.org = OrganizationModel(title='org')
+        self.org.save()
 
         oauth2_settings._SCOPES = ['read', 'write']
         oauth2_settings._DEFAULT_SCOPES = ['read', 'write']
 
     def tearDown(self):
         self.application.delete()
+        self.org.delete()
         self.test_user.delete()
         self.dev_user.delete()
 
@@ -54,6 +58,7 @@ class TestPasswordTokenView(BaseTest):
             'grant_type': 'password',
             'username': 'test_user',
             'password': '123456',
+            'organization_id': self.org.id,
         }
         auth_headers = self.get_basic_auth_header(self.application.client_id, self.application.client_secret)
 
@@ -73,11 +78,49 @@ class TestPasswordTokenView(BaseTest):
             'grant_type': 'password',
             'username': 'test_user',
             'password': 'NOT_MY_PASS',
+            'organization_id': self.org.id,
         }
         auth_headers = self.get_basic_auth_header(self.application.client_id, self.application.client_secret)
 
         response = self.client.post(reverse('oauth2_provider:token'), data=token_request_data, **auth_headers)
         self.assertEqual(response.status_code, 401)
+
+    def test_organization_id_required(self):
+        """
+        Request an access token without an organization_id is forbidden
+        """
+        token_request_data = {
+            'grant_type': 'password',
+            'username': 'test_user',
+            'password': '123456',
+        }
+        auth_headers = self.get_basic_auth_header(self.application.client_id, self.application.client_secret)
+
+        response = self.client.post(reverse('oauth2_provider:token'), data=token_request_data, **auth_headers)
+        self.assertEqual(response.status_code, 400)
+
+        content = json.loads(response.content.decode("utf-8"))
+        self.assertEqual(content['error'], "invalid_request")
+        self.assertIn('organization_id', content['error_description'])
+
+    def test_organization_id_invalid(self):
+        """
+        Request an access token with invalid organization_id
+        """
+        token_request_data = {
+            'grant_type': 'password',
+            'username': 'test_user',
+            'password': '123456',
+            'organization_id': 'NOT_SUCH_ID'
+        }
+        auth_headers = self.get_basic_auth_header(self.application.client_id, self.application.client_secret)
+
+        response = self.client.post(reverse('oauth2_provider:token'), data=token_request_data, **auth_headers)
+        self.assertEqual(response.status_code, 400)
+
+        content = json.loads(response.content.decode("utf-8"))
+        self.assertEqual(content['error'], "invalid_organization")
+        self.assertIn('Invalid Organization', content['error_description'])
 
 
 class TestPasswordProtectedResource(BaseTest):
@@ -86,6 +129,7 @@ class TestPasswordProtectedResource(BaseTest):
             'grant_type': 'password',
             'username': 'test_user',
             'password': '123456',
+            'organization_id': self.org.id,
         }
         auth_headers = self.get_basic_auth_header(self.application.client_id, self.application.client_secret)
 

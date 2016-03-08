@@ -61,7 +61,8 @@ class TestCustomOAuthLibCoreBackend(TestCase):
         payload = "grant_type=password&username=john&password=123456"
         request = self.factory.post("/o/token/", payload, content_type="application/x-www-form-urlencoded")
 
-        with mock.patch('oauthlib.oauth2.Server.create_token_response') as create_token_response:
+        server_class = 'oauth2_provider.oauth2_servers.OAuth2LibServer'
+        with mock.patch('.'.join([server_class, 'create_token_response'])) as create_token_response:
             mocked = mock.MagicMock()
             create_token_response.return_value = mocked, mocked, mocked
             core = self.MyOAuthLibCore()

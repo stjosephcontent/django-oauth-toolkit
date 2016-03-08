@@ -36,7 +36,7 @@ class BaseTest(TestCase):
             authorization_grant_type=Application.GRANT_IMPLICIT,
         )
         self.application.save()
-        self.org = Organization(name="Samovar")
+        self.org = Organization(title="Samovar")
         self.org.save()
 
         oauth2_settings._SCOPES = ['read', 'write']

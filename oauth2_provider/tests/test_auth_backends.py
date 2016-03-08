@@ -29,7 +29,7 @@ class BaseTest(TestCase):
             user=self.user
         )
         self.org = OrganizationModel.objects.create(
-            name='org'
+            title='org'
         )
         self.token = AccessToken.objects.create(user=self.user,
                                                 token='tokstr',

@@ -170,7 +170,7 @@ class TestGrantModel(TestCase):
 class TestAccessTokenModel(TestCase):
     def setUp(self):
         self.user = UserModel.objects.create_user("test_user", "test@user.com", "123456")
-        self.org = OrganizationModel.objects.create(name="Organization")
+        self.org = OrganizationModel.objects.create(title="Organization")
 
     def test_str(self):
         access_token = AccessToken(token="test_token")

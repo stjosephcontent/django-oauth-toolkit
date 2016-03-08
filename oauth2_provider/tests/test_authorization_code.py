@@ -46,7 +46,7 @@ class BaseTest(TestCaseUtils, TestCase):
         )
         self.application.save()
         self.org = Organization(
-            name='org'
+            title='org'
         )
         self.org.save()
 

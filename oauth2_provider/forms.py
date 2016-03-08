@@ -55,5 +55,5 @@ class AllowFormOrg(AllowForm):
         avoid Organization model mix-up (since it can be swapped)
         :return: kwargs
         """
-        kwargs['organization_choices'] = organization_model.objects.values_list('pk', 'name')
+        kwargs['organization_choices'] = organization_model.objects.values_list('pk', 'title')
         return kwargs

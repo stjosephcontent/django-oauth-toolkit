@@ -138,10 +138,10 @@ class AbstractOrganization(models.Model):
     specified along authorization. Exact usage of Organization varies on
     the implementation.
     """
-    name = models.CharField(max_length=255)
+    title = models.CharField(max_length=255)
 
     def __str__(self):
-        return self.name
+        return self.title
 
     class Meta:
         abstract = True

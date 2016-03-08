@@ -36,7 +36,7 @@ class BaseTest(TestCaseUtils, TestCase):
             authorization_grant_type=Application.GRANT_PASSWORD,
         )
         self.application.save()
-        self.org = OrganizationModel(name='org')
+        self.org = OrganizationModel(title='org')
         self.org.save()
 
         oauth2_settings._SCOPES = ['read', 'write']
